@@ -54,7 +54,10 @@ def rollout(model, tokenizer, prompt, n=1, temp=1, top_k=50, top_p=1):
         texts.append(text)
         # reward
         original, rephrasing = get_original_and_rephrasing(text)
-        print(rephrasing)
+        try:
+            print(rephrasing)
+        except:
+            pass
         reward = get_reward(original, rephrasing)
         rewards.append(reward)
         # append rephrasing
@@ -152,9 +155,11 @@ def train(model, original_model, tokenizer, optimizer, texts, epochs=10, batch_s
                 advantage = torch.clamp(advantage, -eps, eps)
 
                 # loss = (ratio * A[i] * loss_mask * exp_decay).mean()
+                # loss = (ratio * A[i] * loss_mask * exp_decay).mean() + beta * torch.abs(kl_divergence - target_KL)
                 loss = (ratio * A[i] * loss_mask * exp_decay).mean() + beta * torch.abs(kl_divergence - target_KL)
 
 
+                print('advantage:', advantage.item())
                 print('loss:', loss.item())
                 print('kl', kl_divergence.item())
                 # backprop
@@ -163,15 +168,15 @@ def train(model, original_model, tokenizer, optimizer, texts, epochs=10, batch_s
                 optimizer.step()
 
                 # update beta
-                e = torch.clamp((kl_divergence / target_KL) - 1, -.1, .1)
-                beta = beta * (1 + 0.1 * e)
+                # e = torch.clamp((kl_divergence.detach() / target_KL) - 1, -.1, .1)
+                # beta = beta * (1 + 0.1 * e)
 
     return average_rewards
 
 if __name__ == '__main__':
-    model_name = 'gpt2'
+    # model_name = 'gpt2'
     # model_name = 'gpt2-large'
-    # model_name = 'gpt2-medium'
+    model_name = 'gpt2-medium'
 
     print('Loading model...')
     # get model and tokenizer
@@ -199,7 +204,7 @@ Planet A is it. Vote to save it''',
 
         # '''Facebook already kicked me off and deleted my account for what I have to say about this bitch. Take her out of government and put her in prison. She is a traitor to our country and our constitution and the people. If the prison system won't take her put her ass on the next boat out maybe drop her off with isis group right before its bombed 🤬''',
         ]
-    rewards = train(model, original_model, tokenizer, optimizer, texts, epochs=3)
+    rewards = train(model, original_model, tokenizer, optimizer, texts, epochs=3, beta=1, target_KL=0.5, eps=0.1)
     from matplotlib import pyplot as plt
     # save model
     torch.save(model.state_dict(), 'model.pt')
