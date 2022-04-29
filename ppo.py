@@ -71,7 +71,7 @@ def rollout(model, tokenizer, prompt, n=1, temp=1, top_k=50, top_p=1):
 def templatize(text):
     return 'Please rephrase the following text to be less toxic: {' + text + '}\nRephrasing: {'
 
-def train(model, original_model, tokenizer, optimizer, texts, epochs=10, batch_size=4, beta0=0.1, target_KL=10, eps=0.1, lam=.98):
+def train(model, original_model, tokenizer, optimizer, texts, epochs=10, batch_size=4, beta=0.1, target_KL=10, eps=0.1, lam=.98):
     average_rewards = []
     for epoch in range(epochs):
         for text in texts:
@@ -80,9 +80,9 @@ def train(model, original_model, tokenizer, optimizer, texts, epochs=10, batch_s
             baseline_data = rollout(model, tokenizer, prompt, n=1, temp=0)
             baseline_reward = baseline_data['rewards'][0]
             # TODO - change?
-            # normalized_rewards = np.array(rollout_data['rewards']) - baseline_reward
+            normalized_rewards = np.array(rollout_data['rewards']) - baseline_reward
             # NORMALIZE REWARDS BY AVERAGE, NOT BY BASELINE
-            normalized_rewards = np.array(rollout_data['rewards']) - np.mean(rollout_data['rewards'])
+            # normalized_rewards = np.array(rollout_data['rewards']) - np.mean(rollout_data['rewards'])
             rollout_data['normalized_rewards'] = normalized_rewards
 
             print(np.mean(rollout_data['rewards']))
@@ -144,13 +144,15 @@ def train(model, original_model, tokenizer, optimizer, texts, epochs=10, batch_s
                 # make an exponential decay in the shape of loss with param lambda
                 exp_decay = lam ** torch.arange(len(loss_mask[0])-1, -1, -1, dtype=torch.float)
 
-                advantage = A[i] - beta0 * average_log_ratio
+                # advantage = A[i] - beta * average_log_ratio
+                advantage = A[i]
 
                 # clamp advantage +- epsilon
                 # TODO - correct? or 1+eps?
                 advantage = torch.clamp(advantage, -eps, eps)
 
-                loss = (ratio * A[i] * loss_mask * exp_decay).mean()
+                # loss = (ratio * A[i] * loss_mask * exp_decay).mean()
+                loss = (ratio * A[i] * loss_mask * exp_decay).mean() + beta * torch.abs(kl_divergence - target_KL)
 
 
                 print('loss:', loss.item())
@@ -162,12 +164,13 @@ def train(model, original_model, tokenizer, optimizer, texts, epochs=10, batch_s
 
                 # update beta
                 e = torch.clamp((kl_divergence / target_KL) - 1, -.1, .1)
-                beta0 = beta0 * (1 + 0.1 * e)
+                beta = beta * (1 + 0.1 * e)
 
     return average_rewards
 
 if __name__ == '__main__':
-    model_name = 'gpt2-large'
+    model_name = 'gpt2'
+    # model_name = 'gpt2-large'
     # model_name = 'gpt2-medium'
 
     print('Loading model...')
