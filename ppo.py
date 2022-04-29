@@ -54,7 +54,10 @@ def rollout(model, tokenizer, prompt, n=1, temp=1, top_k=50, top_p=1):
         texts.append(text)
         # reward
         original, rephrasing = get_original_and_rephrasing(text)
-        print(rephrasing)
+        try:
+            print(rephrasing)
+        except:
+            pass
         reward = get_reward(original, rephrasing)
         rewards.append(reward)
         # append rephrasing
