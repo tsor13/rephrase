@@ -2,8 +2,12 @@ import pandas as pd
 import numpy as np
 from lmtools.lmsampler import LMSampler
 from tqdm import tqdm
+from pdb import set_trace as breakpoint
 
-lm = LMSampler('text-davinci-002')
+model = 'gpt2-xl'
+# lm = LMSampler('text-davinci-002')
+lm = LMSampler(model)
+# lm = LMSampler('EleutherAI/gpt-j-6B')
 
 prompt1 = '''Rephrase the following texts to be less toxic, while maintaining as much of the original meaning as possible.
 {'''
@@ -27,7 +31,8 @@ prompt4 = '''Rephrase the following texts to be less toxic, while maintaining as
 {'''
 
 # read in small_df
-df = pd.read_pickle('small_df.pkl')
+# df = pd.read_pickle('small_df.pkl')
+df = pd.read_csv('small_df.csv')
 # keep only first 200
 df = df.iloc[:200]
 # make prompt column
@@ -50,16 +55,17 @@ for sample_num in range(1, n_samples + 1):
                 sample = lm.sample_several(df.iloc[i]['prompt_' + prompt_name],
                     temperature=1,
                     n_tokens=1024,
-                    stop=['}'],
+                    stop_tokens=['}'],
                 )
-            except:
+            except Exception as e:
                 sample = 'Error'
+                print(e)
             samples.append(sample)
         # make new column 'generated' + prompt_name + str(sample_num)
         col = 'generated_' + prompt_name + str(sample_num)
         df[col] = ''
         df[col] = samples
-    df.to_pickle('several_df.pkl')
+    df.to_pickle('several_df_' + model + '.pkl')
 
 # save df to generated_df
-df.to_pickle('several_df.pkl')
+df.to_pickle('several_df_' + model + '.pkl')
